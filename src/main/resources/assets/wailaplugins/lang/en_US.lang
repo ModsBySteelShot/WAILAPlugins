@@ -102,6 +102,12 @@ wp.hud.msg.energyStored=Stored: %s
 wp.hud.msg.charge=Charge: %s
 wp.hud.msg.needMeter=Hold Charge Meter
 
+wp.hud.msg.currentRate=Current rate: %d (%d L/s)
+wp.hud.msg.biomeHumidityRate=Biome humidity rate: %d
+wp.hud.msg.rainingRate=Raining rate: %d
+wp.hud.msg.snowingRate=Snowing rate: %d
+wp.hud.msg.cantSeeTheSkyRate=Can't see the sky rate: %d
+
 wp.config.Railcraft.charge=Show Charge
 wp.config.Railcraft.energy=Show RF Energy
 wp.config.Railcraft.engines=Show Engine Info

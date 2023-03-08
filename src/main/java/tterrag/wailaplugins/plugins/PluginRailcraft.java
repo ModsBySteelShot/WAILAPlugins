@@ -2,6 +2,7 @@ package tterrag.wailaplugins.plugins;
 
 import java.text.DecimalFormat;
 import java.util.List;
+import java.util.stream.IntStream;
 
 import mcp.mobius.waila.api.IWailaConfigHandler;
 import mcp.mobius.waila.api.IWailaDataAccessor;
@@ -13,6 +14,7 @@ import mods.railcraft.api.electricity.IElectricGrid;
 import mods.railcraft.api.tracks.ITrackInstance;
 import mods.railcraft.common.blocks.machine.TileMachineBase;
 import mods.railcraft.common.blocks.machine.TileMultiBlock;
+import mods.railcraft.common.blocks.machine.alpha.TileTankWater;
 import mods.railcraft.common.blocks.machine.beta.TileBoilerFirebox;
 import mods.railcraft.common.blocks.machine.beta.TileBoilerTank;
 import mods.railcraft.common.blocks.machine.beta.TileEngine;
@@ -35,6 +37,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.EnumChatFormatting;
+import net.minecraft.util.MathHelper;
 import net.minecraft.world.World;
 import net.minecraftforge.fluids.FluidTankInfo;
 import net.minecraftforge.fluids.IFluidHandler;
@@ -44,6 +47,99 @@ import tterrag.wailaplugins.config.WPConfigHandler;
 
 import com.enderio.core.common.util.BlockCoord;
 import com.enderio.core.common.util.ItemUtil;
+
+final class WaterTankRateCalculator {
+
+    private final float ONE = 1.0F;
+
+    private final float BASE_HUMIDITY_RATE = 10F;
+
+    private final float OUTSIDE_RATE = 0.5F;
+    private final float SNOW_RATE = 0.5F;
+
+    private final float RAIN_RATE = 3.0F;
+
+    private static final float RATE_TICK_RATIO = 0.125F;
+
+    private World world;
+    private int x;
+    private int y;
+    private int z;
+
+    private float rate;
+
+    private float humidityRate;
+
+    private float outsideRate;
+
+    private float snowingOrRainingRate;
+
+    WaterTankRateCalculator(TileMultiBlock multiBlock) {
+        world = multiBlock.getWorld();
+        x = multiBlock.getMasterBlock().xCoord;
+        y = multiBlock.getMasterBlock().yCoord;
+        z = multiBlock.getMasterBlock().zCoord;
+    }
+
+    public static float convertRateToLitersPerSecond(float rate) {
+        return rate * RATE_TICK_RATIO * 20;
+    }
+
+    public WaterTankRateCalculator init() {
+        humidityRate = calculateHumidityRate();
+        outsideRate = calculateOutsideRate();
+        snowingOrRainingRate = calculateSnowingOrRainingRate();
+
+        rate = Math.max(MathHelper.floor_float(humidityRate * outsideRate * snowingOrRainingRate), ONE);
+        return this;
+    }
+
+    private float calculateHumidityRate() {
+        return BASE_HUMIDITY_RATE * world.getBiomeGenForCoords(x, z).rainfall;
+    }
+
+    private float calculateOutsideRate() {
+        IntStream streamX = IntStream.rangeClosed(x - 1, x + 1);
+        return streamX.anyMatch(eachX -> {
+            IntStream streamZ = IntStream.rangeClosed(z - 1, z + 1);
+            return streamZ.anyMatch(eachZ -> !world.canBlockSeeTheSky(eachX, y + 3, eachZ));
+        }) ? OUTSIDE_RATE : ONE;
+    }
+
+    private float calculateSnowingOrRainingRate() {
+        if (!world.isRaining()) return ONE;
+        return world.getBiomeGenForCoords(x, z).getEnableSnow() ? SNOW_RATE : RAIN_RATE;
+    }
+
+    public float getRate() {
+        return rate;
+    }
+
+    public float getHumidityRate() {
+        return humidityRate;
+    }
+
+    public float getOutsideRate() {
+        return outsideRate;
+    }
+
+    public float getSnowingOrRainingRate() {
+        return snowingOrRainingRate;
+    }
+
+    public boolean getIsSnowing() {
+        return snowingOrRainingRate == SNOW_RATE;
+    }
+
+    public boolean getIsRaining() {
+        return snowingOrRainingRate == RAIN_RATE;
+    }
+
+    public boolean getIsOutside() {
+        return outsideRate == OUTSIDE_RATE;
+    }
+
+}
 
 @Plugin(deps = "Railcraft")
 public class PluginRailcraft extends PluginBase implements IWailaEntityProvider {
@@ -67,6 +163,7 @@ public class PluginRailcraft extends PluginBase implements IWailaEntityProvider 
         addConfig("engines");
         addConfig("charge");
         addConfig("locomotives");
+        addConfig("waterTankRate");
     }
 
     @Override
@@ -103,6 +200,25 @@ public class PluginRailcraft extends PluginBase implements IWailaEntityProvider 
         if (tag.hasKey(TANK_FLUID)) {
             FluidTankInfo info = PluginIFluidHandler.readFluidInfoFromNBT(tag.getCompoundTag(TANK_FLUID));
             PluginIFluidHandler.addTankTooltip(currenttip, info);
+        }
+
+        if (tile instanceof TileTankWater && ((TileTankWater) tile).isStructureValid() && getConfig("waterTankRate")) {
+            WaterTankRateCalculator waterTankRateCalculator = new WaterTankRateCalculator((TileMultiBlock) tile).init();
+            float rate = waterTankRateCalculator.getRate();
+            currenttip.add(
+                    lang.localize("currentRate", rate, WaterTankRateCalculator.convertRateToLitersPerSecond(rate)));
+            currenttip.add(lang.localize("biomeHumidityRate", waterTankRateCalculator.getHumidityRate()));
+
+            float snowingOrRainingRate = waterTankRateCalculator.getSnowingOrRainingRate();
+            if (waterTankRateCalculator.getIsRaining()) {
+                currenttip.add(lang.localize("rainingRate", snowingOrRainingRate));
+            } else if (waterTankRateCalculator.getIsSnowing()) {
+                currenttip.add(lang.localize("snowingRate", snowingOrRainingRate));
+            }
+
+            if (waterTankRateCalculator.getIsOutside()) {
+                currenttip.add(lang.localize("cantSeeTheSkyRate", waterTankRateCalculator.getOutsideRate()));
+            }
         }
 
         if (getConfig("charge") && tag.hasKey(CHARGE)) {
