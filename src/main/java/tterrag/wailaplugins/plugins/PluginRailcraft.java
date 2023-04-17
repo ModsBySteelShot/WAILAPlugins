@@ -107,7 +107,7 @@ final class WaterTankRateCalculator {
     }
 
     private float calculateSnowingOrRainingRate() {
-        if (!world.isRaining()) return ONE;
+        if (!world.isRaining() || getIsInside()) return ONE;
         return world.getBiomeGenForCoords(x, z).getEnableSnow() ? SNOW_RATE : RAIN_RATE;
     }
 
