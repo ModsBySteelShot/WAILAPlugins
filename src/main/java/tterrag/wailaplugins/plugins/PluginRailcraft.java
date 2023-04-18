@@ -54,7 +54,7 @@ final class WaterTankRateCalculator {
 
     private final float BASE_HUMIDITY_RATE = 10F;
 
-    private final float OUTSIDE_RATE = 0.5F;
+    private final float INSIDE_RATE = 0.5F;
     private final float SNOW_RATE = 0.5F;
 
     private final float RAIN_RATE = 3.0F;
@@ -70,7 +70,7 @@ final class WaterTankRateCalculator {
 
     private float humidityRate;
 
-    private float outsideRate;
+    private float insideRate;
 
     private float snowingOrRainingRate;
 
@@ -87,10 +87,10 @@ final class WaterTankRateCalculator {
 
     public WaterTankRateCalculator init() {
         humidityRate = calculateHumidityRate();
-        outsideRate = calculateOutsideRate();
+        insideRate = calculateInsideRate();
         snowingOrRainingRate = calculateSnowingOrRainingRate();
 
-        rate = Math.max(MathHelper.floor_float(humidityRate * outsideRate * snowingOrRainingRate), ONE);
+        rate = Math.max(MathHelper.floor_float(humidityRate * insideRate * snowingOrRainingRate), ONE);
         return this;
     }
 
@@ -98,16 +98,16 @@ final class WaterTankRateCalculator {
         return BASE_HUMIDITY_RATE * world.getBiomeGenForCoords(x, z).rainfall;
     }
 
-    private float calculateOutsideRate() {
+    private float calculateInsideRate() {
         IntStream streamX = IntStream.rangeClosed(x - 1, x + 1);
         return streamX.anyMatch(eachX -> {
             IntStream streamZ = IntStream.rangeClosed(z - 1, z + 1);
-            return streamZ.anyMatch(eachZ -> !world.canBlockSeeTheSky(eachX, y + 3, eachZ));
-        }) ? OUTSIDE_RATE : ONE;
+            return streamZ.anyMatch(eachZ -> world.canBlockSeeTheSky(eachX, y + 3, eachZ));
+        }) ? ONE : INSIDE_RATE;
     }
 
     private float calculateSnowingOrRainingRate() {
-        if (!world.isRaining()) return ONE;
+        if (!world.isRaining() || getIsInside()) return ONE;
         return world.getBiomeGenForCoords(x, z).getEnableSnow() ? SNOW_RATE : RAIN_RATE;
     }
 
@@ -119,8 +119,8 @@ final class WaterTankRateCalculator {
         return humidityRate;
     }
 
-    public float getOutsideRate() {
-        return outsideRate;
+    public float getInsideRate() {
+        return insideRate;
     }
 
     public float getSnowingOrRainingRate() {
@@ -135,8 +135,8 @@ final class WaterTankRateCalculator {
         return snowingOrRainingRate == RAIN_RATE;
     }
 
-    public boolean getIsOutside() {
-        return outsideRate == OUTSIDE_RATE;
+    public boolean getIsInside() {
+        return insideRate == INSIDE_RATE;
     }
 
 }
@@ -216,8 +216,8 @@ public class PluginRailcraft extends PluginBase implements IWailaEntityProvider 
                 currenttip.add(lang.localize("snowingRate", snowingOrRainingRate));
             }
 
-            if (waterTankRateCalculator.getIsOutside()) {
-                currenttip.add(lang.localize("cantSeeTheSkyRate", waterTankRateCalculator.getOutsideRate()));
+            if (waterTankRateCalculator.getIsInside()) {
+                currenttip.add(lang.localize("cantSeeTheSkyRate", waterTankRateCalculator.getInsideRate()));
             }
         }
 
