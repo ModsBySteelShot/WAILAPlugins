@@ -83,9 +83,7 @@ wp.config.magicalcrops.showHover=显示产物图标
 ## Mekanism ##
 
 wp.config.Mekanism.salination=显示Salination Mult
-wp.config.Mekanism.portableTank=显示Portable Tank Fluid
 wp.config.Mekanism.gas=显示Gas
-wp.config.Mekanism.factoryType=显示Factory Type
 wp.config.Mekanism.energy=显示Energy
 
 

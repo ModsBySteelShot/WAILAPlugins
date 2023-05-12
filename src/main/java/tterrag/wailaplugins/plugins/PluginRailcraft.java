@@ -4,32 +4,6 @@ import java.text.DecimalFormat;
 import java.util.List;
 import java.util.stream.IntStream;
 
-import mcp.mobius.waila.api.IWailaConfigHandler;
-import mcp.mobius.waila.api.IWailaDataAccessor;
-import mcp.mobius.waila.api.IWailaEntityAccessor;
-import mcp.mobius.waila.api.IWailaEntityProvider;
-import mcp.mobius.waila.api.IWailaRegistrar;
-import mcp.mobius.waila.api.impl.ModuleRegistrar;
-import mods.railcraft.api.electricity.IElectricGrid;
-import mods.railcraft.api.tracks.ITrackInstance;
-import mods.railcraft.common.blocks.machine.TileMachineBase;
-import mods.railcraft.common.blocks.machine.TileMultiBlock;
-import mods.railcraft.common.blocks.machine.alpha.TileTankWater;
-import mods.railcraft.common.blocks.machine.beta.TileBoilerFirebox;
-import mods.railcraft.common.blocks.machine.beta.TileBoilerTank;
-import mods.railcraft.common.blocks.machine.beta.TileEngine;
-import mods.railcraft.common.blocks.machine.beta.TileEngineSteam;
-import mods.railcraft.common.blocks.machine.beta.TileEngineSteamHobby;
-import mods.railcraft.common.blocks.machine.beta.TileTankBase;
-import mods.railcraft.common.blocks.tracks.TileTrack;
-import mods.railcraft.common.blocks.tracks.TrackElectric;
-import mods.railcraft.common.carts.EntityLocomotive;
-import mods.railcraft.common.carts.EntityLocomotiveElectric;
-import mods.railcraft.common.carts.EntityLocomotiveSteam;
-import mods.railcraft.common.fluids.tanks.StandardTank;
-import mods.railcraft.common.items.ItemElectricMeter;
-import mods.railcraft.common.plugins.buildcraft.triggers.ITemperature;
-
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
@@ -42,29 +16,40 @@ import net.minecraft.world.World;
 import net.minecraftforge.fluids.FluidTankInfo;
 import net.minecraftforge.fluids.IFluidHandler;
 
-import tterrag.wailaplugins.api.Plugin;
-import tterrag.wailaplugins.config.WPConfigHandler;
-
 import com.enderio.core.common.util.BlockCoord;
 import com.enderio.core.common.util.ItemUtil;
 
+import mcp.mobius.waila.api.*;
+import mcp.mobius.waila.api.impl.ModuleRegistrar;
+import mods.railcraft.api.electricity.IElectricGrid;
+import mods.railcraft.api.tracks.ITrackInstance;
+import mods.railcraft.common.blocks.machine.TileMachineBase;
+import mods.railcraft.common.blocks.machine.TileMultiBlock;
+import mods.railcraft.common.blocks.machine.alpha.TileTankWater;
+import mods.railcraft.common.blocks.machine.beta.*;
+import mods.railcraft.common.blocks.tracks.TileTrack;
+import mods.railcraft.common.blocks.tracks.TrackElectric;
+import mods.railcraft.common.carts.EntityLocomotive;
+import mods.railcraft.common.carts.EntityLocomotiveElectric;
+import mods.railcraft.common.carts.EntityLocomotiveSteam;
+import mods.railcraft.common.fluids.tanks.StandardTank;
+import mods.railcraft.common.items.ItemElectricMeter;
+import mods.railcraft.common.plugins.buildcraft.triggers.ITemperature;
+import tterrag.wailaplugins.api.Plugin;
+import tterrag.wailaplugins.config.WPConfigHandler;
+
 final class WaterTankRateCalculator {
 
+    private static final float RATE_TICK_RATIO = 0.125F;
     private final float ONE = 1.0F;
-
     private final float BASE_HUMIDITY_RATE = 10F;
-
     private final float INSIDE_RATE = 0.5F;
     private final float SNOW_RATE = 0.5F;
-
     private final float RAIN_RATE = 3.0F;
-
-    private static final float RATE_TICK_RATIO = 0.125F;
-
-    private World world;
-    private int x;
-    private int y;
-    private int z;
+    private final World world;
+    private final int x;
+    private final int y;
+    private final int z;
 
     private float rate;
 
@@ -144,7 +129,34 @@ final class WaterTankRateCalculator {
 @Plugin(deps = "Railcraft")
 public class PluginRailcraft extends PluginBase implements IWailaEntityProvider {
 
+    public static final String TANK_FLUID = "tankFluid";
+    public static final String HEAT = "heat";
+    public static final String MAX_HEAT = "maxHeat";
+    public static final String CURRENT_OUTPUT = "currentOutput";
+    public static final String ENERGY_STORED = "energyStored";
+    public static final String CHARGE = "charge";
     private static final DecimalFormat fmtCharge = new DecimalFormat("#.##");
+
+    private static void addChargeTooltip(List<String> currenttip, NBTTagCompound tag, EntityPlayer player) {
+        ItemStack current = player.getCurrentEquippedItem();
+        boolean hasMeter = !WPConfigHandler.meterInHand
+                || (current != null && ItemUtil.stacksEqual(current, ItemElectricMeter.getItem()));
+
+        double charge = tag.getDouble(CHARGE);
+        String chargeFmt = fmtCharge.format(charge) + "c";
+
+        currenttip.add(
+                EnumChatFormatting.RESET + String.format(
+                        lang.localize("charge"),
+                        hasMeter ? chargeFmt : (EnumChatFormatting.ITALIC + lang.localize("needMeter"))));
+    }
+
+    private static void addHeatTooltip(List<String> currenttip, NBTTagCompound tag) {
+        int heat = Math.round(tag.getFloat(HEAT));
+        int max = Math.round(tag.getFloat(MAX_HEAT));
+
+        currenttip.add(String.format(lang.localize("engineTemp"), heat, max));
+    }
 
     @Override
     public void load(IWailaRegistrar registrar) {
@@ -198,8 +210,9 @@ public class PluginRailcraft extends PluginBase implements IWailaEntityProvider 
         }
 
         if (tag.hasKey(TANK_FLUID)) {
-            FluidTankInfo info = PluginIFluidHandler.readFluidInfoFromNBT(tag.getCompoundTag(TANK_FLUID));
-            PluginIFluidHandler.addTankTooltip(currenttip, info);
+            FluidTankInfo fluidInfo = FluidHandlerHelper.getFluidInfo(tag.getCompoundTag(TANK_FLUID));
+
+            FluidHandlerHelper.addFluidInfo((ITaggedList<String, String>) currenttip, fluidInfo);
         }
 
         if (tile instanceof TileTankWater && ((TileTankWater) tile).isStructureValid() && getConfig("waterTankRate")) {
@@ -226,34 +239,6 @@ public class PluginRailcraft extends PluginBase implements IWailaEntityProvider 
         }
     }
 
-    private static void addChargeTooltip(List<String> currenttip, NBTTagCompound tag, EntityPlayer player) {
-        ItemStack current = player.getCurrentEquippedItem();
-        boolean hasMeter = !WPConfigHandler.meterInHand
-                || (current != null && ItemUtil.stacksEqual(current, ItemElectricMeter.getItem()));
-
-        double charge = tag.getDouble(CHARGE);
-        String chargeFmt = fmtCharge.format(charge) + "c";
-
-        currenttip.add(
-                EnumChatFormatting.RESET + String.format(
-                        lang.localize("charge"),
-                        hasMeter ? chargeFmt : (EnumChatFormatting.ITALIC + lang.localize("needMeter"))));
-    }
-
-    private static void addHeatTooltip(List<String> currenttip, NBTTagCompound tag) {
-        int heat = Math.round(tag.getFloat(HEAT));
-        int max = Math.round(tag.getFloat(MAX_HEAT));
-
-        currenttip.add(String.format(lang.localize("engineTemp"), heat, max));
-    }
-
-    public static final String TANK_FLUID = "tankFluid";
-    public static final String HEAT = "heat";
-    public static final String MAX_HEAT = "maxHeat";
-    public static final String CURRENT_OUTPUT = "currentOutput";
-    public static final String ENERGY_STORED = "energyStored";
-    public static final String CHARGE = "charge";
-
     @Override
     protected void getNBTData(TileEntity te, NBTTagCompound tag, World world, BlockCoord pos) {
         if (te instanceof TileMultiBlock && ((TileMultiBlock) te).getMasterBlock() != null) {
@@ -261,7 +246,7 @@ public class PluginRailcraft extends PluginBase implements IWailaEntityProvider 
                 te = ((TileMultiBlock) te).getMasterBlock();
                 StandardTank tank = ((TileTankBase) te).getTank();
                 NBTTagCompound fluidTag = new NBTTagCompound();
-                PluginIFluidHandler.writeFluidInfoToNBT(tank.getInfo(), fluidTag);
+                FluidHandlerHelper.setFluidInfo(fluidTag, tank.getInfo());
                 tag.setTag(TANK_FLUID, fluidTag);
             }
             te = ((TileMultiBlock) te).getMasterBlock();

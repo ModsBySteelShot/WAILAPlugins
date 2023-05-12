@@ -60,9 +60,7 @@ wp.config.magicalcrops.showHover=호버링 아이템 보기
 ## Mekanism ##
 
 wp.config.Mekanism.salination=Show Salination Mult
-wp.config.Mekanism.portableTank=휴대용탱크 액체 보기
 wp.config.Mekanism.gas=기체 보기
-wp.config.Mekanism.factoryType=공장종류 보기
 wp.config.Mekanism.energy=에너지 보기
 
 ## RedLogic ##

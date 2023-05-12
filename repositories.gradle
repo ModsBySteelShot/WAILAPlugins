@@ -19,4 +19,8 @@ repositories {
     maven {
         url = "https://jitpack.io"
     }
+    maven {
+        name = "Thorfusion"
+        url = "https://maven.thorfusion.com/artifactory/central"
+    }
 }

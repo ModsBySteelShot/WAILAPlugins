@@ -65,9 +65,7 @@ wp.config.magicalcrops.showHover=Mostrar Item Pairando
 ## Mekanism ##
 
 wp.config.Mekanism.salination=Mostrar Mult Salinização
-wp.config.Mekanism.portableTank=Mostrar Fluido do Tanque Portátil
 wp.config.Mekanism.gas=Mostrar Gás
-wp.config.Mekanism.factoryType=Mostrar o Tipo de Fábrica
 wp.config.Mekanism.energy=Mostrar Energia
 
 

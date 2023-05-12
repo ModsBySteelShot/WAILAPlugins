@@ -66,9 +66,7 @@ wp.config.magicalcrops.showHover=Schwebende Items anzeigen
 ## Mekanism ##
 
 wp.config.Mekanism.salination=Versalzungsanzeige
-wp.config.Mekanism.portableTank=Anzeige bei tragbarem Tank
 wp.config.Mekanism.gas=Gasanzeige
-wp.config.Mekanism.factoryType=Zeige Herstellungstyp
 wp.config.Mekanism.energy=Energieanzeige
 
 

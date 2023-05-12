@@ -7,11 +7,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-import lombok.SneakyThrows;
-import mcp.mobius.waila.api.IWailaDataAccessor;
-import mcp.mobius.waila.api.IWailaRegistrar;
-import mcp.mobius.waila.api.SpecialChars;
-
 import net.minecraft.block.Block;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
@@ -22,8 +17,6 @@ import net.minecraft.util.MovingObjectPosition;
 import net.minecraft.world.World;
 
 import org.apache.commons.lang3.ArrayUtils;
-
-import tterrag.wailaplugins.api.Plugin;
 
 import com.enderio.core.common.Lang;
 import com.enderio.core.common.util.BlockCoord;
@@ -55,6 +48,11 @@ import forestry.core.tiles.TileEngine;
 import forestry.core.tiles.TileForestry;
 import forestry.core.utils.StringUtil;
 import forestry.plugins.PluginApiculture;
+import lombok.SneakyThrows;
+import mcp.mobius.waila.api.IWailaDataAccessor;
+import mcp.mobius.waila.api.IWailaRegistrar;
+import mcp.mobius.waila.api.SpecialChars;
+import tterrag.wailaplugins.api.Plugin;
 
 @Plugin(name = "Forestry", deps = "Forestry")
 public class PluginForestry extends PluginBase {

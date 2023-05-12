@@ -1,10 +1,8 @@
 package tterrag.wailaplugins.plugins;
 
 import java.util.List;
-
-import mcp.mobius.waila.api.ITaggedList;
-import mcp.mobius.waila.api.IWailaDataAccessor;
-import mcp.mobius.waila.api.IWailaRegistrar;
+import java.util.Objects;
+import java.util.stream.IntStream;
 
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -17,9 +15,12 @@ import net.minecraftforge.fluids.FluidStack;
 import net.minecraftforge.fluids.FluidTankInfo;
 import net.minecraftforge.fluids.IFluidHandler;
 
-import tterrag.wailaplugins.api.Plugin;
-
 import com.enderio.core.common.util.BlockCoord;
+
+import mcp.mobius.waila.api.ITaggedList;
+import mcp.mobius.waila.api.IWailaDataAccessor;
+import mcp.mobius.waila.api.IWailaRegistrar;
+import tterrag.wailaplugins.api.Plugin;
 
 @Plugin(name = "IFluidHandler")
 public class PluginIFluidHandler extends PluginBase {
@@ -34,60 +35,99 @@ public class PluginIFluidHandler extends PluginBase {
 
     @Override
     protected void getBody(ItemStack stack, List<String> currenttip, IWailaDataAccessor accessor) {
-        FluidTankInfo[] infos = readFluidInfosFromNBT(accessor.getNBTData());
-        addTankTooltip(currenttip, infos);
-    }
+        FluidTankInfo[] tankInfos = FluidHandlerHelper.getFluidInfos(accessor.getNBTData());
 
-    @SuppressWarnings("unchecked")
-    public static void addTankTooltip(List<String> currenttip, FluidTankInfo... tanks) {
-        for (FluidTankInfo tank : tanks) {
-            if (tank != null && tank.fluid != null) {
-                ((ITaggedList<String, String>) currenttip).add(
-                        tank.fluid.amount + " / " + tank.capacity + " mB " + tank.fluid.getLocalizedName(),
-                        "IFluidHandler");
-            }
-        }
+        FluidHandlerHelper.addFluidInfos((ITaggedList<String, String>) currenttip, tankInfos);
     }
 
     @Override
     protected void getNBTData(TileEntity te, NBTTagCompound tag, World world, BlockCoord pos) {
-        writeFluidInfoToNBT((IFluidHandler) te, tag);
+        FluidHandlerHelper.setFluidInfos(tag, (IFluidHandler) te);
+
+        te.writeToNBT(tag);
+    }
+}
+
+final class FluidHandlerHelper {
+
+    public static void setFluidInfos(NBTTagCompound tag, IFluidHandler te) {
+        FluidTankInfo[] tankInfos = te.getTankInfo(ForgeDirection.UNKNOWN);
+
+        setFluidInfos(tag, tankInfos);
     }
 
-    public static void writeFluidInfoToNBT(IFluidHandler te, NBTTagCompound tag) {
-        FluidTankInfo[] infos = ((IFluidHandler) te).getTankInfo(ForgeDirection.UNKNOWN);
-        if (infos != null && infos.length > 0) {
-            NBTTagList infoList = new NBTTagList();
-            for (FluidTankInfo info : infos) {
-                NBTTagCompound infoTag = new NBTTagCompound();
-                writeFluidInfoToNBT(info, infoTag);
-                infoList.appendTag(infoTag);
+    public static void setFluidInfos(NBTTagCompound tag, FluidTankInfo... tankInfos) {
+        if (tankInfos != null && tankInfos.length > 0) {
+            NBTTagList fluidInfoTags = new NBTTagList();
+
+            for (FluidTankInfo tankInfo : tankInfos) {
+                NBTTagCompound tankInfoTag = new NBTTagCompound();
+
+                setFluidInfo(tankInfoTag, tankInfo);
+
+                fluidInfoTags.appendTag(tankInfoTag);
             }
-            tag.setTag("fluidInfo", infoList);
+
+            if (fluidInfoTags.tagCount() > 0) {
+                tag.setTag("fluidInfos", fluidInfoTags);
+            }
         }
     }
 
-    public static FluidTankInfo[] readFluidInfosFromNBT(NBTTagCompound tag) {
-        NBTTagList list = tag.getTagList("fluidInfo", NBT.TAG_COMPOUND);
-        FluidTankInfo[] ret = new FluidTankInfo[list.tagCount()];
-        for (int i = 0; i < ret.length; i++) {
-            ret[i] = readFluidInfoFromNBT(list.getCompoundTagAt(i));
+    public static void setFluidInfo(NBTTagCompound tag, FluidTankInfo tankInfo) {
+        if (tankInfo != null) {
+            if (tankInfo.fluid != null) {
+                NBTTagCompound fluidTag = new NBTTagCompound();
+
+                tankInfo.fluid.writeToNBT(fluidTag);
+
+                tag.setTag("fluidStack", fluidTag);
+            }
+
+            tag.setInteger("tankCapacity", tankInfo.capacity);
         }
-        return ret;
     }
 
-    public static void writeFluidInfoToNBT(FluidTankInfo info, NBTTagCompound tag) {
-        if (info.fluid != null) {
-            NBTTagCompound fluidTag = new NBTTagCompound();
-            info.fluid.writeToNBT(fluidTag);
-            tag.setTag("fluid", fluidTag);
-        }
-        tag.setInteger("capacity", info.capacity);
+    public static FluidTankInfo[] getFluidInfos(NBTTagCompound tag) {
+        NBTTagList tagList = tag.getTagList("fluidInfos", NBT.TAG_COMPOUND);
+
+        return IntStream.range(0, tagList.tagCount()).mapToObj(i -> getFluidInfo(tagList.getCompoundTagAt(i)))
+                .filter(Objects::nonNull).toArray(FluidTankInfo[]::new);
     }
 
-    public static FluidTankInfo readFluidInfoFromNBT(NBTTagCompound tag) {
-        FluidStack fluid = tag.hasKey("fluid") ? FluidStack.loadFluidStackFromNBT(tag.getCompoundTag("fluid")) : null;
-        int capacity = tag.getInteger("capacity");
-        return new FluidTankInfo(fluid, capacity);
+    public static FluidTankInfo getFluidInfo(NBTTagCompound tag) {
+        if (tag.hasKey("fluidStack") && tag.hasKey("tankCapacity")) {
+            FluidStack fluidStack = FluidStack.loadFluidStackFromNBT(tag.getCompoundTag("fluidStack"));
+
+            return new FluidTankInfo(fluidStack, tag.getInteger("tankCapacity"));
+        } else if (tag.hasKey("tankCapacity")) {
+            return new FluidTankInfo(null, tag.getInteger("tankCapacity"));
+        }
+
+        return null;
+    }
+
+    public static void addFluidInfos(ITaggedList<String, String> currenttip, FluidTankInfo... tankInfos) {
+        if (tankInfos != null) {
+            for (FluidTankInfo tankInfo : tankInfos) {
+                addFluidInfo(currenttip, tankInfo);
+            }
+        }
+    }
+
+    public static void addFluidInfo(ITaggedList<String, String> currenttip, FluidTankInfo tankInfo) {
+        if (tankInfo != null) {
+            if (tankInfo.fluid != null) {
+                currenttip.add(
+                        String.format(
+                                "%d / %d mB %s",
+                                tankInfo.fluid.amount,
+                                tankInfo.capacity,
+                                tankInfo.fluid.getLocalizedName()),
+                        "IFluidHandler");
+            } else {
+                currenttip.add(String.format("0 / %d mB", tankInfo.capacity), "IFluidHandler");
+            }
+        }
     }
 }

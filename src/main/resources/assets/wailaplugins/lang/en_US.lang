@@ -84,9 +84,7 @@ wp.config.magicalcrops.showHover=Show Hovering Item
 ## Mekanism ##
 
 wp.config.Mekanism.salination=Show Salination Mult
-wp.config.Mekanism.portableTank=Show Portable Tank Fluid
 wp.config.Mekanism.gas=Show Gas
-wp.config.Mekanism.factoryType=Show Factory Type
 wp.config.Mekanism.energy=Show Energy
 
 

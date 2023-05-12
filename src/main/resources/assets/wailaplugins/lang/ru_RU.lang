@@ -76,9 +76,7 @@ wp.config.magicalcrops.showHover=Показывать парящий предм�
 ## Mekanism ##
 
 wp.config.Mekanism.salination=Показывать множитель опреснения
-wp.config.Mekanism.portableTank=Показывать жидкость резервуара
 wp.config.Mekanism.gas=Показывать газ
-wp.config.Mekanism.factoryType=Показывать тип фабрики
 wp.config.Mekanism.energy=Показывать энергию
 
 
