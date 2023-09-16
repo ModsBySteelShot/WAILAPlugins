@@ -7,12 +7,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
-import lombok.SneakyThrows;
-import mcp.mobius.waila.api.IWailaDataAccessor;
-import mcp.mobius.waila.api.IWailaRegistrar;
-import mcp.mobius.waila.api.SpecialChars;
-
-import net.minecraft.block.Block;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -23,16 +17,17 @@ import net.minecraft.world.World;
 
 import org.apache.commons.lang3.ArrayUtils;
 
-import tterrag.wailaplugins.api.Plugin;
-
 import com.enderio.core.common.Lang;
 import com.enderio.core.common.util.BlockCoord;
 import com.google.common.collect.Lists;
 import com.google.common.collect.Sets;
 import com.mojang.authlib.GameProfile;
 
+import cpw.mods.fml.common.Loader;
+import forestry.api.apiculture.BeeManager;
 import forestry.api.apiculture.EnumBeeChromosome;
 import forestry.api.apiculture.IBee;
+import forestry.api.apiculture.IBeeGenome;
 import forestry.api.apiculture.IBeeHousing;
 import forestry.api.apiculture.IBeeHousingInventory;
 import forestry.api.apiculture.IBeekeepingLogic;
@@ -55,8 +50,14 @@ import forestry.core.tiles.TileEngine;
 import forestry.core.tiles.TileForestry;
 import forestry.core.utils.StringUtil;
 import forestry.plugins.PluginApiculture;
+import lombok.SneakyThrows;
+import magicbees.tileentity.TileEntityMagicApiary;
+import mcp.mobius.waila.api.IWailaDataAccessor;
+import mcp.mobius.waila.api.IWailaRegistrar;
+import mcp.mobius.waila.api.SpecialChars;
+import tterrag.wailaplugins.api.Plugin;
 
-@Plugin(name = "Forestry", deps = "Forestry")
+@Plugin(name = "Forestry", deps = { "Forestry" })
 public class PluginForestry extends PluginBase {
 
     private static Field _throttle;
@@ -89,6 +90,11 @@ public class PluginForestry extends PluginBase {
 
         registerNBT(TileForestry.class, TileTreeContainer.class, TileAlveary.class);
 
+        if (Loader.isModLoaded("MagicBees")) {
+            registerBody(TileEntityMagicApiary.class);
+            registerNBT(TileEntityMagicApiary.class);
+        }
+
         addConfig("power");
         addConfig("heat");
         addConfig("sapling");
@@ -100,9 +106,7 @@ public class PluginForestry extends PluginBase {
     @SneakyThrows
     @SuppressWarnings("unused")
     protected void getBody(ItemStack stack, List<String> currenttip, IWailaDataAccessor accessor) {
-        Block block = accessor.getBlock();
         TileEntity tile = accessor.getTileEntity();
-        World world = accessor.getWorld();
         EntityPlayer player = accessor.getPlayer();
         MovingObjectPosition pos = accessor.getPosition();
         NBTTagCompound tag = accessor.getNBTData();
@@ -171,6 +175,14 @@ public class PluginForestry extends PluginBase {
                 if (drone.isAnalyzed()) {
                     addIndentedBeeInfo(drone, currenttip);
                 }
+            }
+
+            if (tag.hasKey(DUMMY_PRODUCTION)) {
+                currenttip.add(
+                        EnumChatFormatting.WHITE + lang.localize(
+                                "effectiveProductionMul",
+                                EnumChatFormatting.AQUA
+                                        + String.format("b^0.52 * %.3f", tag.getFloat(DUMMY_PRODUCTION))));
             }
 
             if (tag.hasKey(ERRORS) || tag.hasKey(BREED_PROGRESS)) {
@@ -246,6 +258,7 @@ public class PluginForestry extends PluginBase {
     public static final String LEAF_BRED_SPECIES = "leafBredSpecies";
     public static final String QUEEN_STACK = "queenStack";
     public static final String DRONE_STACK = "droneStack";
+    public static final String DUMMY_PRODUCTION = "dummyProduction";
     public static final String ERRORS = "errors";
     public static final String BREED_PROGRESS = "breedProgress";
     public static final String TREE = "treeData";
@@ -302,6 +315,15 @@ public class PluginForestry extends PluginBase {
                     float progress = step * (throttle / PluginApiculture.ticksPerBeeWorkCycle);
 
                     tag.setDouble(BREED_PROGRESS, (age / maxAge) + progress);
+
+                    IBeeGenome genome = queenBee.getGenome();
+                    float prodMod = BeeManager.beeRoot.createBeeHousingModifier(housing)
+                            .getProductionModifier(genome, 0f);
+                    prodMod += BeeManager.beeRoot.getBeekeepingMode(housing.getWorld()).getBeeModifier()
+                            .getProductionModifier(genome, prodMod);
+                    float dummyProd = 100f * Bee.getFinalChance(0.01f, genome.getSpeed(), prodMod, 1f);
+
+                    tag.setFloat(DUMMY_PRODUCTION, dummyProd);
                 }
             }
         }
