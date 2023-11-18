@@ -7,7 +7,7 @@ repositories {
     }
     maven {
         name = "ic2"
-        url = "http://maven.ic2.player.to/"
+        url = "https://maven2.ic2.player.to/"
         metadataSources {
             mavenPom()
             artifact()
@@ -21,6 +21,6 @@ repositories {
     }
     maven {
         name = "Thorfusion"
-        url = "https://maven.thorfusion.com/artifactory/central"
+        url = "https://maven.thorfusion.com/artifactory/thorfusion/"
     }
 }
