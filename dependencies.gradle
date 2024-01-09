@@ -1,34 +1,41 @@
 // Add your dependencies here
 
 dependencies {
-    implementation("com.github.GTNewHorizons:waila:1.6.5:dev")
+    api("com.github.GTNewHorizons:waila:1.6.5:dev")
 
-    implementation("com.github.GTNewHorizons:EnderCore:0.2.18:dev") {
+    api("com.github.GTNewHorizons:EnderCore:0.3.0:dev") {
         transitive = false
     }
 
-    compileOnly("com.github.GTNewHorizons:GT5-Unofficial:5.09.44.83:dev") {
+    compileOnly("com.github.GTNewHorizons:GT5-Unofficial:5.09.45.23:dev") {
         transitive = false
     }
-    compileOnly("com.github.GTNewHorizons:ForestryMC:4.7.0:dev") {
+
+    compileOnly("com.github.GTNewHorizons:ForestryMC:4.8.0:dev") {
         transitive = false
     }
-    compileOnly("com.github.GTNewHorizons:MagicBees:2.7.0-GTNH:dev") {
+
+    compileOnly("com.github.GTNewHorizons:MagicBees:2.7.1-GTNH:dev") {
         transitive = false
     }
+
     compileOnly("com.github.GTNewHorizons:StructureLib:1.2.9:dev") {
         transitive = false
     }
-    compileOnly("com.github.GTNewHorizons:Railcraft:9.15.1:dev") {
+
+    compileOnly("com.github.GTNewHorizons:Railcraft:9.15.3:dev") {
         transitive = false
     }
+
     compileOnly("com.github.GTNewHorizons:BloodMagic:1.4.3:dev") {
         transitive = false
     }
-    compileOnly("com.github.GTNewHorizons:Applied-Energistics-2-Unofficial:rv3-beta-282-GTNH:dev") {
+
+    compileOnly("com.github.GTNewHorizons:Applied-Energistics-2-Unofficial:rv3-beta-306-GTNH:dev") {
         transitive = false
     }
-    compileOnly("com.github.GTNewHorizons:BuildCraft:7.1.36:dev") {
+
+    compileOnly("com.github.GTNewHorizons:BuildCraft:7.1.39:dev") {
         transitive = false
     }
 
@@ -39,19 +46,20 @@ dependencies {
         transitive = false
     }
 
-    compileOnly("mekanism:Mekanism-Community-Edition:1.7.10-9.10.32:DEV") {
+
+    compileOnly("mekanism:Mekanism-Community-Edition:1.7.10-9.10.33:DEV") {
         transitive = false
     }
     compileOnly("net.industrial-craft:industrialcraft-2:2.2.828-experimental:dev") {
         transitive = false
     }
 
+    compileOnly files("dependencies/redlogic-59.1.13.jar")
+    compileOnly files("dependencies/immibis-microblocks-59.1.2.jar")
+
     compileOnly("org.projectlombok:lombok:1.18.22") {
         transitive = false
     }
-
-    compileOnly files("dependencies/redlogic-59.1.13.jar")
-    compileOnly files("dependencies/immibis-microblocks-59.1.2.jar")
 
     annotationProcessor("org.projectlombok:lombok:1.18.22")
 }
