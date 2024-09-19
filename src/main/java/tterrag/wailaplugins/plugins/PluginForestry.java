@@ -3,8 +3,11 @@ package tterrag.wailaplugins.plugins;
 import java.lang.reflect.Field;
 import java.text.NumberFormat;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.UUID;
 
 import net.minecraft.entity.player.EntityPlayer;
@@ -177,12 +180,8 @@ public class PluginForestry extends PluginBase {
                 }
             }
 
-            if (tag.hasKey(DUMMY_PRODUCTION)) {
-                currenttip.add(
-                        EnumChatFormatting.WHITE + lang.localize(
-                                "effectiveProductionMul",
-                                EnumChatFormatting.AQUA
-                                        + String.format("b^0.52 * %.3f", tag.getFloat(DUMMY_PRODUCTION))));
+            if (tag.hasKey(PROD_MOD) && queen != null) {
+                addBeeYieldInfo(queen.getGenome(), tag.getFloat(PROD_MOD), currenttip);
             }
 
             if (tag.hasKey(ERRORS) || tag.hasKey(BREED_PROGRESS)) {
@@ -204,6 +203,14 @@ public class PluginForestry extends PluginBase {
                             EnumChatFormatting.WHITE + String.format(
                                     lang.localize("breedProgress"),
                                     EnumChatFormatting.AQUA + pctFmt.format(tag.getDouble(BREED_PROGRESS))));
+                }
+            }
+
+            if (tag.hasKey(IS_JUBILANT)) {
+                if (tag.getBoolean(IS_JUBILANT)) {
+                    currenttip.add(EnumChatFormatting.AQUA + lang.localize("isJubilant"));
+                } else {
+                    currenttip.add(EnumChatFormatting.RED + lang.localize("isNotJubilant"));
                 }
             }
         }
@@ -255,11 +262,62 @@ public class PluginForestry extends PluginBase {
         }
     }
 
+    private void extendBeeYieldMap(Map<ItemStack, Float> yields, Map<ItemStack, Float> products, boolean isSecondary,
+            float speed, float prodMod, float t) {
+        for (Map.Entry<ItemStack, Float> product : products.entrySet()) {
+            float chance = product.getValue() / (isSecondary ? 2f : 1f);
+            float term = Math.min(Bee.getFinalChance(chance, speed, prodMod, t), 1f);
+            if (yields.computeIfPresent(product.getKey(), (k, v) -> v + term) == null) {
+                yields.put(product.getKey(), term);
+            }
+        }
+    }
+
+    private void addBeeYieldInfo(IBeeGenome genome, float prodMod, List<String> currenttip) {
+        EnumChatFormatting color = prodMod > 16f ? EnumChatFormatting.RED : EnumChatFormatting.AQUA;
+        float speed = genome.getSpeed();
+        float dummyProd = 100f * Math.min(Bee.getFinalChance(0.01f, speed, prodMod, 1f), 1f);
+        currenttip.add(
+                EnumChatFormatting.WHITE
+                        + lang.localize("effectiveProductionMul", color + String.format("b^0.52 * %.3f", dummyProd)));
+
+        if (!Proxies.common.isShiftDown()) {
+            currenttip.add(EnumChatFormatting.ITALIC + "<" + lang.localize("revealYield") + ">");
+        } else {
+            // create a summary of the average yields for all outputs with different average yields
+            Map<ItemStack, Float> yields = new HashMap<>();
+            extendBeeYieldMap(yields, genome.getPrimary().getProductChances(), false, speed, prodMod, 1f);
+            extendBeeYieldMap(yields, genome.getSecondary().getProductChances(), true, speed, prodMod, 1f);
+            extendBeeYieldMap(yields, genome.getPrimary().getSpecialtyChances(), false, speed, prodMod, 1f);
+            TreeMap<Float, ItemStack[]> productsByYield = new TreeMap<>();
+            for (Map.Entry<ItemStack, Float> product : yields.entrySet()) {
+                float chance = product.getValue();
+                ItemStack item = product.getKey();
+                if (productsByYield.computeIfPresent(
+                        chance,
+                        (_chance, items) -> items.length > 1 ? items : new ItemStack[] { items[0], item }) == null) {
+                    productsByYield.put(chance, new ItemStack[] { item });
+                }
+            }
+
+            for (Map.Entry<Float, ItemStack[]> ent : productsByYield.descendingMap().entrySet()) {
+                String name = ent.getValue()[0].getDisplayName();
+                boolean isDup = ent.getValue().length > 1;
+                String namePart = name + (isDup ? ", ... : " : ": ");
+                // items / bee tick * 60 seconds / minute * 60 minutes / hour / (27.5 seconds / bee tick) = items / hour
+                String yieldPart = String.format("%.3f ", ent.getKey() * 60 * 60 / 27.5)
+                        + lang.localize("yieldPerHour");
+                currenttip.add(SpecialChars.TAB + namePart + yieldPart);
+            }
+        }
+    }
+
     public static final String LEAF_BRED_SPECIES = "leafBredSpecies";
     public static final String QUEEN_STACK = "queenStack";
     public static final String DRONE_STACK = "droneStack";
-    public static final String DUMMY_PRODUCTION = "dummyProduction";
+    public static final String PROD_MOD = "dummyProduction";
     public static final String ERRORS = "errors";
+    public static final String IS_JUBILANT = "isJubilant";
     public static final String BREED_PROGRESS = "breedProgress";
     public static final String TREE = "treeData";
     public static final String ENERGY_STORED = "rfStored";
@@ -321,9 +379,13 @@ public class PluginForestry extends PluginBase {
                             .getProductionModifier(genome, 0f);
                     prodMod += BeeManager.beeRoot.getBeekeepingMode(housing.getWorld()).getBeeModifier()
                             .getProductionModifier(genome, prodMod);
-                    float dummyProd = 100f * Bee.getFinalChance(0.01f, genome.getSpeed(), prodMod, 1f);
 
-                    tag.setFloat(DUMMY_PRODUCTION, dummyProd);
+                    tag.setFloat(PROD_MOD, prodMod);
+
+                    tag.setBoolean(
+                            IS_JUBILANT,
+                            genome.getPrimary().isJubilant(genome, housing)
+                                    && genome.getSecondary().isJubilant(genome, housing));
                 }
             }
         }
